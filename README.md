@@ -1,4 +1,8 @@
 # PYTheme
+[![Build Status](https://travis-ci.org/iphone5solo/PYTheme.svg?branch=master)](https://travis-ci.org/iphone5solo/PYTheme)
+[![Pod Version](http://img.shields.io/cocoapods/v/PYTheme.svg?style=flat)](http://cocoadocs.org/docsets/PYTheme/)
+[![Pod Platform](http://img.shields.io/cocoapods/p/PYTheme.svg?style=flat)](http://cocoadocs.org/docsets/PYTheme/)
+[![Pod License](http://img.shields.io/cocoapods/l/PYTheme.svg?style=flat)](https://opensource.org/licenses/MIT)
 
 - An easy way to change theme through NSObject's category for iOS.
 - 通过NSObject的分类实现使用简单的主题更换。
@@ -9,6 +13,7 @@
 - [x] 自动管理内存
 - [x] 支持动态更换主题颜色
 - [x] 支持动态更换主题图片
+- [x] 支持CocoaPods
 
 ## Requirements
 * iOS 7.0 or later
@@ -23,6 +28,9 @@
 <img src="https://github.com/iphone5solo/learngit/raw/master/imagesForPYTheme/PYThemeDemo.gif" width="375"> 
 
 ## Usage
+* 使用CocoaPods:
+  - `pod "PYTheme"`
+  - 导入主头文件`#import <NSObject+PYThemeExtension.h>`
 * 手动导入：
   - 将`PYTheme`文件夹中的所有文件拽入项目中
   - 导入主头文件`#import "NSObject+PYThemeExtension.h"`
