@@ -23,7 +23,7 @@
     // 创建TabBarController
     PYTabBarController *tabBarController = [[PYTabBarController alloc] init];
     if (!self.window) {
-        self.window = [[UIWindow alloc] init];
+        self.window = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
         self.window.rootViewController = tabBarController;
         [self.window makeKeyAndVisible];
     }
