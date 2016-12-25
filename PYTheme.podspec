@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
     s.name         = 'PYTheme'
-    s.version      = '0.1.0'
+    s.version      = '0.2.0'
     s.summary      = 'An easy way to change theme through NSObject category for iOS.'
     s.homepage     = 'https://github.com/iphone5solo/PYTheme'
     s.license      = 'MIT'
