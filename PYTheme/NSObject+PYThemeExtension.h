@@ -25,6 +25,11 @@ typedef void(^PYThemeImageSettingBlock)(const NSArray<id> *objects);
  */
 - (void)py_addToThemeColorPoolWithSelector:(SEL)selector objects:(NSArray<id> *)objects;
 /** 
+ * 从主题色池移除
+ * selector : 执行方法
+ */
+- (void)py_removeFromThemeColorPoolWithSelector:(SEL)selector;
+/** 
  * 添加到主题色池
  * propertyName : 属性名
  */

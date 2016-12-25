@@ -14,7 +14,7 @@
 @implementation NSObject (PYThemeExtension)
 
 /** 主题颜色池 */
-static NSMutableArray<NSDictionary *> *_themeColorPool;
+static NSMutableArray<NSMapTable *> *_themeColorPool;
 /** 当前主题色 */
 static UIColor *_currentThemeColor;
 
@@ -169,13 +169,51 @@ static NSMutableArray<id> *_themeImagePool;
     if ([self isMemberOfClass:appearanceClass]) return;
     // 键：对象地址+方法名 值：对象
     NSString *pointSelectorString = [NSString stringWithFormat:@"%p%@", self, NSStringFromSelector(selector)];
-    NSDictionary *dic = @{ pointSelectorString      : self,
-                           PYTHEME_COLOR_ARGS_KEY   : objects };
+    // 采用NSMapTable存储对象，使用弱引用
+    NSMapTable *mapTable = [NSMapTable mapTableWithKeyOptions:NSMapTableCopyIn valueOptions:NSMapTableWeakMemory];
+    [mapTable setObject:self forKey:pointSelectorString];
+    [mapTable setObject:objects forKey:PYTHEME_COLOR_ARGS_KEY];
     // 判断是否已经在主题色池中
-    if (![[self themeColorPool] containsObject:dic]) { // 不在主题色池中
-        [[self themeColorPool] addObject:dic];
-        if (_currentThemeColor) { // 已经设置主题色，直接设置
-            [self py_performSelector:selector withObjects:objects];
+    for (NSMapTable *subMapTable in [[self themeColorPool] copy]) {
+        if ([[subMapTable description] isEqualToString:[mapTable description]]) { // 存在，直接返回
+            return;
+        }
+    }
+    // 不存在，添加主题色池中
+    [[self themeColorPool] addObject:mapTable];
+    if (_currentThemeColor) { // 已经设置主题色，直接设置
+        [self py_performSelector:selector withObjects:objects];
+    }
+}
+
+/**
+ * 从主题色池移除
+ * selector : 执行方法
+ */
+- (void)py_removeFromThemeColorPoolWithSelector:(SEL)selector
+{
+    // 如果对象为_UIAppearance，直接返回
+    Class appearanceClass = NSClassFromString(@"_UIAppearance");
+    if ([self isMemberOfClass:appearanceClass]) return;
+    
+    // 键：对象地址+方法名 值：对象
+    NSString *pointSelectorString = [NSString stringWithFormat:@"%p%@", self, NSStringFromSelector(selector)];
+    // 判断是否已经在主题色池中
+    for (NSMapTable *subMapTable in [[self themeColorPool] copy]) {
+        // 取出key
+        NSString *objectKey = nil;
+        // 获取mapTable中所有key
+        NSEnumerator *enumerator = [subMapTable keyEnumerator];
+        NSString *key;
+        while (key = [enumerator nextObject]) {
+            if (![key isEqualToString:PYTHEME_COLOR_ARGS_KEY]) {
+                objectKey = key;
+                break;
+            }
+        }
+        if([objectKey isEqualToString:pointSelectorString]) { // 存在，移除
+            [[self themeColorPool] removeObject:subMapTable];
+            return;
         }
     }
 }
@@ -191,31 +229,19 @@ static NSMutableArray<id> *_themeImagePool;
     if ([self isMemberOfClass:appearanceClass]) return;
     // 键：对象地址+属性名 值：对象
     NSString *pointString = [NSString stringWithFormat:@"%p%@", self, propertyName];
-    NSDictionary *dic = @{ pointString : self };
-    // 判断是否已经在主题色中
-    if (![[self themeColorPool] containsObject:dic]) { // 不在主题色池中
-        [[self themeColorPool] addObject:dic];
-        if (_currentThemeColor) { // 已经设置主题色，直接设置
-            [self setValue:_currentThemeColor forKey:propertyName];
+    // 采用NSMapTable存储对象，使用弱引用
+    NSMapTable *mapTable = [NSMapTable mapTableWithKeyOptions:NSMapTableCopyIn valueOptions:NSMapTableWeakMemory];
+    [mapTable setObject:self forKey:pointString];
+    // 判断是否已经在主题色池中
+    for (NSMapTable *subMapTable in [[self themeColorPool] copy]) {
+        if ([[subMapTable description] isEqualToString:[mapTable description]]) { // 存在，直接返回
+            return;
         }
     }
-    // 遍历主题色池(移除应该被回收的对象)
-    for (NSDictionary *dict in [[self themeColorPool] copy]) {
-        // 取出key
-        NSString *objectKey = nil;
-        for (NSString *key in [dict allKeys]) {
-            if (![key isEqualToString:PYTHEME_COLOR_ARGS_KEY]) {
-                objectKey = key;
-                break;
-            }
-        }
-        // 取出对象
-        id object = [dict valueForKey:objectKey];
-        // 取出对象的引用计数
-        NSInteger retainCount = [[object valueForKey:@"retainCount"] integerValue];
-        if (retainCount == 2) { // 对象应该被回收了
-            [[self themeColorPool] removeObject:dict];
-        }
+    // 不存在，添加主题色池中
+    [[self themeColorPool] addObject:mapTable];
+    if (_currentThemeColor) { // 已经设置主题色，直接设置
+        [self setValue:_currentThemeColor forKey:propertyName];
     }
 }
 
@@ -231,10 +257,14 @@ static NSMutableArray<id> *_themeImagePool;
     
     // 键：对象地址+属性名 值：对象
     NSString *pointString = [NSString stringWithFormat:@"%p%@", self, propertyName];
-    NSDictionary *dic = @{ pointString : self };
     // 判断是否已经在主题色池中
-    if ([[self themeColorPool] containsObject:dic]) { // 在主题色池中
-        [[self themeColorPool] removeObject:dic];
+    for (NSMapTable *subMapTable in [[self themeColorPool] copy]) {
+        // 获取mapTable中所有key
+        NSEnumerator *enumerator = [subMapTable keyEnumerator];
+        if([[enumerator nextObject] isEqualToString:pointString]) { // 存在，移除
+            [[self themeColorPool] removeObject:subMapTable];
+            return;
+        }
     }
 }
 
@@ -246,20 +276,26 @@ static NSMutableArray<id> *_themeImagePool;
 {
     _currentThemeColor = color;
     // 遍历缓主题池，设置统一主题色
-    for (NSDictionary *dict in [_themeColorPool copy]) {
+    for (NSMapTable *mapTable in [_themeColorPool copy]) {
         // 取出key
         NSString *objectKey = nil;
-        for (NSString *key in [dict allKeys]) {
+        // 获取mapTable中所有key
+        NSEnumerator *enumerator = [mapTable keyEnumerator];
+        NSString *key;
+        while (key = [enumerator nextObject]) {
             if (![key isEqualToString:PYTHEME_COLOR_ARGS_KEY]) {
                 objectKey = key;
                 break;
             }
         }
+        if (!key) { // 如果key为空，则mapTable 为空，移除mapTable
+            [_themeColorPool removeObject:mapTable];
+        }
         // 取出对象
-        id object = [dict valueForKey:objectKey];
+        id object = [mapTable objectForKey:objectKey];
         if ([objectKey containsString:@":"]) { // 方法
             // 取出参数
-            NSArray *args = dict[PYTHEME_COLOR_ARGS_KEY];
+            NSArray *args = [mapTable objectForKey:PYTHEME_COLOR_ARGS_KEY];
             // 取出方法
             NSString *selectorName = [objectKey substringFromIndex:[[NSString stringWithFormat:@"%p", object] length]];
             SEL selector = NSSelectorFromString(selectorName);
@@ -294,13 +330,6 @@ static NSMutableArray<id> *_themeImagePool;
     // 判断是否已经在主题图片池中
     if (![[self themeImagePool] containsObject:self]) { // 不在主题图片池中
         [[self themeImagePool] addObject:self];
-    }
-    // 遍历主题图片池(移除应该被回收的对象)
-    for (id object in [self themeImagePool]) {
-        NSInteger retainCount = [[object valueForKey:@"retainCount"] integerValue];
-        if (retainCount == 2) { // 对象应该被回收了
-            [[self themeImagePool] removeObject:self];
-        }
     }
 }
 
