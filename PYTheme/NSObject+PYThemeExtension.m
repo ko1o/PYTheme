@@ -17,6 +17,8 @@
 static NSMutableArray<NSMapTable *> *_themeColorPool;
 /** 当前主题色 */
 static UIColor *_currentThemeColor;
+/** 用于保存NSMapTable中的参数数组 */
+static NSMutableDictionary *_parameterArrays;
 
 /** 主题图片池 */
 static NSMutableArray<id> *_themeImagePool;
@@ -36,6 +38,14 @@ static NSMutableArray<id> *_themeImagePool;
         _themeImagePool = [NSMutableArray array];
     }
     return _themeImagePool;
+}
+
+- (NSMutableDictionary *)parameterArrays
+{
+    if (!_parameterArrays) {
+        _parameterArrays = [NSMutableDictionary dictionary];
+    }
+    return _parameterArrays;
 }
 
 #pragma mark - performSelector 多参调用
@@ -173,6 +183,9 @@ static NSMutableArray<id> *_themeImagePool;
     NSMapTable *mapTable = [NSMapTable mapTableWithKeyOptions:NSMapTableCopyIn valueOptions:NSMapTableWeakMemory];
     [mapTable setObject:self forKey:pointSelectorString];
     [mapTable setObject:objects forKey:PYTHEME_COLOR_ARGS_KEY];
+    // 目的：保住参数数组的生命周期 键：mapTable指针 值：参数数组
+    NSString *mapTablePointString = [NSString stringWithFormat:@"%p", mapTable];
+    [[self parameterArrays] setValue:objects forKey:mapTablePointString];
     // 判断是否已经在主题色池中
     for (NSMapTable *subMapTable in [[self themeColorPool] copy]) {
         if ([[subMapTable description] isEqualToString:[mapTable description]]) { // 存在，直接返回
@@ -212,6 +225,8 @@ static NSMutableArray<id> *_themeImagePool;
             }
         }
         if([objectKey isEqualToString:pointSelectorString]) { // 存在，移除
+            // 移除参数数组
+            [_parameterArrays removeObjectForKey:[NSString stringWithFormat:@"%p", subMapTable]];
             [[self themeColorPool] removeObject:subMapTable];
             return;
         }
@@ -288,7 +303,9 @@ static NSMutableArray<id> *_themeImagePool;
                 break;
             }
         }
-        if (!key) { // 如果key为空，则mapTable 为空，移除mapTable
+        if (!key) { // 如果key为空，则对象被释放，移除mapTable
+            // 移除参数数组
+            [_parameterArrays removeObjectForKey:[NSString stringWithFormat:@"%p", mapTable]];
             [_themeColorPool removeObject:mapTable];
         }
         // 取出对象
